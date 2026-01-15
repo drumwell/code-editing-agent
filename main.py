@@ -3,7 +3,7 @@ import sys
 from anthropic import Anthropic
 
 from agent import Agent
-from tools import ReadFileDefinition, ListFilesDefinition, EditFileDefinition
+from tools import ReadFileDefinition, ListFilesDefinition, EditFileDefinition, BashDefinition, CodeSearchDefinition
 
 
 def main() -> None:
@@ -16,7 +16,7 @@ def main() -> None:
             return "", False
         return line.rstrip("\n"), True
 
-    tools = [ReadFileDefinition, ListFilesDefinition, EditFileDefinition]
+    tools = [ReadFileDefinition, ListFilesDefinition, EditFileDefinition, BashDefinition, CodeSearchDefinition]
     agent = NewAgent(client, get_user_message, tools)
 
     try:

@@ -1,5 +1,6 @@
 import os
 import json
+import subprocess
 from agent import ToolDefinition
 
 def read_file(input: dict) -> str:
@@ -132,4 +133,83 @@ If the file specified with path doesn't exist, it will be created.""",
         "required": ["path", "old_str", "new_str"],
     },
     function=edit_file,
+)
+
+
+# Dangerous command patterns to block
+DANGEROUS_PATTERNS = ["rm -rf", "sudo", "> /dev", "mkfs", "dd if=", ":(){"]
+
+
+def bash(input: dict) -> str:
+    command = input.get("command", "")
+
+    if not command:
+        raise ValueError("command is required")
+
+    # Block dangerous commands
+    for pattern in DANGEROUS_PATTERNS:
+        if pattern in command:
+            raise ValueError(f"Blocked dangerous command pattern: {pattern}")
+
+    result = subprocess.run(
+        command, shell=True, capture_output=True, text=True, timeout=30
+    )
+    return result.stdout + result.stderr
+
+
+BashDefinition = ToolDefinition(
+    name="bash",
+    description="""Execute a bash command and return its output.
+
+Use this to run shell commands like git, npm, python, cat, grep, etc.
+Some dangerous commands (rm -rf, sudo, etc.) are blocked for safety.""",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "command": {
+                "type": "string",
+                "description": "The bash command to execute",
+            },
+        },
+        "required": ["command"],
+    },
+    function=bash,
+)
+
+
+def code_search(input: dict) -> str:
+    pattern = input.get("pattern", "")
+    path = input.get("path", ".")
+
+    if not pattern:
+        raise ValueError("pattern is required")
+
+    result = subprocess.run(
+        ["rg", "--line-number", pattern, path],
+        capture_output=True, text=True, timeout=30
+    )
+    return result.stdout or "No matches found"
+
+
+CodeSearchDefinition = ToolDefinition(
+    name="code_search",
+    description="""Search for a pattern in the codebase using ripgrep.
+
+Use this to find specific code, strings, or patterns across files.
+Returns matching lines with file paths and line numbers.""",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "pattern": {
+                "type": "string",
+                "description": "The regex pattern to search for",
+            },
+            "path": {
+                "type": "string",
+                "description": "Optional path to search in. Defaults to current directory.",
+            },
+        },
+        "required": ["pattern"],
+    },
+    function=code_search,
 )

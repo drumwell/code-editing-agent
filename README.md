@@ -1,6 +1,8 @@
 # Code Editing Agent
 
-A minimal AI coding agent built with Claude that can read, list, and edit files in your project.
+A minimal AI coding agent built with Claude. ~200 lines of Python running in a loop with LLM tokens.
+
+Inspired by [Geoffrey Huntley's workshop](https://ghuntley.com/agent/).
 
 ## Setup
 
@@ -12,7 +14,14 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install anthropic
 ```
 
-2. **Set your API key:**
+2. **Install ripgrep** (for code search):
+
+```bash
+brew install ripgrep      # macOS
+apt install ripgrep       # Ubuntu/Debian
+```
+
+3. **Set your API key:**
 
 ```bash
 export ANTHROPIC_API_KEY=your-api-key-here
@@ -24,38 +33,57 @@ export ANTHROPIC_API_KEY=your-api-key-here
 python main.py
 ```
 
-Then chat with Claude. Ask it to explore and edit files:
+Then chat with Claude:
 
 ```
 You: what files are in this directory?
-You: read main.py and explain what it does
-You: create a file called hello.py that prints hello world
-You: change hello.py to print goodbye instead
+You: search the code for "ToolDefinition"
+You: read agent.py and explain how the loop works
+You: create a fizzbuzz.py that prints fizzbuzz from 1 to 100
+You: run python fizzbuzz.py
+You: fix the bug in fizzbuzz.py
 ```
 
 Use `Ctrl+C` to quit.
 
 ## Tools
 
-The agent has three tools available:
-
 | Tool | Description |
 |------|-------------|
-| `list_files` | Lists files and directories at a given path |
-| `read_file` | Reads the contents of a file |
-| `edit_file` | Edits a file by replacing text, or creates new files |
+| `list_files` | List files and directories at a given path |
+| `read_file` | Read the contents of a file |
+| `edit_file` | Edit a file by replacing text, or create new files |
+| `bash` | Execute shell commands (dangerous commands blocked) |
+| `code_search` | Search code with ripgrep |
+
+### Tool Details
+
+**edit_file** — Uses string replacement. Pass `old_str=""` to create a new file.
+
+**bash** — Blocks dangerous patterns: `rm -rf`, `sudo`, `> /dev`, `mkfs`, `dd if=`, `:{()`. Times out after 30 seconds.
+
+**code_search** — Requires `ripgrep` (`rg`). Returns matching lines with file paths and line numbers.
 
 ## Project Structure
 
 ```
 ├── main.py      # Entry point, sets up and runs the agent
-├── agent.py     # Agent class with conversation loop and tool execution
-└── tools.py     # Tool definitions (list_files, read_file, edit_file)
+├── agent.py     # Agent loop and tool execution
+└── tools.py     # Tool definitions
 ```
 
-## Rate Limits
+## How It Works
 
-If you hit rate limits, check:
-- The Anthropic console at [console.anthropic.com](https://console.anthropic.com) for usage stats
-- That `list_files` isn't recursively listing large directories (it's configured to only list immediate children)
-
+```
+┌─────────────────────────────────────────────────────┐
+│                    Agent Loop                       │
+├─────────────────────────────────────────────────────┤
+│  1. Get user input                                  │
+│  2. Send conversation to Claude                     │
+│  3. If Claude returns text → print it               │
+│  4. If Claude returns tool_use → execute tool       │
+│  5. Add tool result to conversation                 │
+│  6. Go to step 2 (until no more tool calls)         │
+│  7. Go to step 1                                    │
+└─────────────────────────────────────────────────────┘
+```
